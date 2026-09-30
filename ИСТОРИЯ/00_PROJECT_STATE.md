@@ -4,18 +4,16 @@
 
 Версия 0.1.0. Статус проекта: IN_PROGRESS.
 
-IMPLEMENTED: локальный Python HTTP API, SQLite, разделение памяти personal/home/work и по проектам, два исходных рабочих проекта, создание проектов, локальный Ollama-адаптер, веб-интерфейс, частичная диагностика, online резервная копия SQLite с SHA-256, миграции SQLite, восстановление проверенной копии базы через API и защита одного экземпляра Tooru Core.
+IMPLEMENTED: локальный Python HTTP API, SQLite, разделение памяти personal/home/work и по проектам, два исходных рабочих проекта, создание проектов, локальный Ollama-адаптер, веб-интерфейс, частичная диагностика, online backup SQLite с SHA-256, миграции SQLite, восстановление проверенной копии базы через API, защита одного экземпляра Tooru Core и базовый Crash Recovery.
 
-Single-instance protection использует OS-level lock `runtime_state/core.lock`. Launcher проверяет настоящий Tooru Core через `/api/v1/system/identity` и режим `python -m core.server --probe`.
+Crash Recovery ведёт `runtime_state/state.json` после успешного захвата OS-level single-instance lock. Состояние записывается атомарно через `state.json.tmp` + `os.replace`. Фиксируются `starting/running/stopped`, `clean_shutdown`, причина штатного завершения, предыдущее завершение, число обнаруженных recovery-событий и результат проверки.
 
-Portable Python installer: IN_PROGRESS. `SETUP.bat` теперь умеет выбрать архитектуру Windows (AMD64/ARM64/x86), скачать официальный Python 3.14.7 embeddable ZIP с python.org, проверить зафиксированный SHA-256 через `certutil`, распаковать через `tar.exe` в staging, добавить корень проекта в штатный `python*._pth`, проверить `import core.server` и только затем активировать `runtime/python`. Предыдущий runtime сохраняется для отката до успешной финальной проверки. PowerShell не используется.
+Если предыдущая сессия была незавершённой либо `state.json` повреждён, ядро до запуска HTTP-сервера проверяет SQLite через `Storage.health()`. При успешной проверке recovery помечается `ok`; при ошибке ядро не продолжает обычный запуск и возвращает код 4. Необработанная startup-ошибка намеренно не пишет clean-shutdown marker, чтобы следующий запуск снова обнаружил аварию.
 
-Зафиксированные SHA-256 взяты из официального Windows release manifest Python 3.14.7. Контрактные тесты `tests/test_setup_contract.py` проверяют URLs, hashes, переносимые пути, отсутствие PowerShell-команды, staging и rollback.
+Статус Crash Recovery доступен через `/api/v1/system/status` и отображается в разделе «Настройки»: состояние восстановления, предыдущее завершение и результат recovery-проверки.
 
-Схема SQLite сейчас версии 1. Перед восстановлением автоматически создаётся safety-backup текущей базы.
+Portable Python installer остаётся IN_PROGRESS до фактической проверки `SETUP.bat` на Windows и внешнем SSD.
 
-Адаптер настроен на локальный Ollama `127.0.0.1:11435` с моделью `tooru-local:4b`.
+Проверено в Linux 2026-09-30: `python -m unittest discover -s tests -v` — 28/28; `python -m compileall -q core tests` — успешно; `node --check web/static/app.js` — успешно. Во время старых backup/restore тестов Python 3.13 выдаёт `ResourceWarning` о незакрытых SQLite connection; тесты не падают, проблема зафиксирована отдельно.
 
-Не подтверждено на пользовательской Windows/SSD: фактическая загрузка Python через новый `SETUP.bat`, распаковка штатным `tar.exe`, настройка `._pth`, rollback и повторный запуск launcher. Поэтому portable installer пока не переводится в полностью IMPLEMENTED.
-
-PLANNED: полноценные AI provider/model manager, Internet Gateway/почта, очередь, события, мобильные приложения, публичная многопользовательская версия, полный Backup Manager, Crash Recovery/Safe Mode/Maintenance Mode, обновление и подписанные релизы.
+PLANNED: Safe Mode, Maintenance Mode, полный Backup Manager, AI provider/model manager, Internet Gateway/почта, очередь, события, мобильные приложения, публичная многопользовательская версия, updater и подписанные релизы.
