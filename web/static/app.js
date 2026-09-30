@@ -22,7 +22,8 @@ async function loadStatus(){
   const grid=$('status-grid');grid.replaceChildren();
   try{const s=await api('system/status');$('core-badge').textContent='✅ Ядро работает';$('core-badge').className='badge';
     $('ai-badge').textContent=s.ai.status==='ok'?'✅ Ollama доступна':'⚠️ AI не подключён';$('ai-badge').className='badge '+(s.ai.status==='ok'?'':'warn');
-    [['Ядро',s.core],['SQLite',s.database],['Хранилище',s.storage],['AI',s.ai.status],['AI адрес',s.ai.url],['Модель',s.ai.selected||'не выбрана'],['Свободно',Math.round(s.free_bytes/1024/1024)+' МБ']].forEach(([label,value])=>{
+    const recovery=s.runtime&&s.runtime.previous_unclean_shutdown?(s.runtime.recovery_status||'pending'):'ok';
+    [['Ядро',s.core],['SQLite',s.database],['Хранилище',s.storage],['Один экземпляр',s.single_instance||'unknown'],['Восстановление',recovery],['AI',s.ai.status],['AI адрес',s.ai.url],['Модель',s.ai.selected||'не выбрана'],['Свободно',Math.round(s.free_bytes/1024/1024)+' МБ']].forEach(([label,value])=>{
       const card=document.createElement('div');card.className='status-item';const strong=document.createElement('strong');strong.textContent=label;const span=document.createElement('span');span.textContent=value;card.append(strong,span);grid.append(card)})
   }catch(e){$('core-badge').textContent='❌ Ядро недоступно';$('core-badge').className='badge warn';feedback(e.message)}
 }
