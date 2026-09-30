@@ -9,18 +9,60 @@ import json
 import mimetypes
 import os
 import shutil
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
+from urllib.request import Request, urlopen
 
 from .ai import Ollama
+from .instance import InstanceAlreadyRunning, InstanceLock, SERVICE_ID
 from .storage import Storage
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / "web" / "static"
+CORE_PROTOCOL = 1
 
 
-def make_handler(storage, ai, port):
+def configured_port():
+    port = int(os.environ.get("TOORU_PORT", "8765"))
+    if not 1024 <= port <= 65535:
+        raise ValueError("TOORU_PORT должен быть в диапазоне 1024–65535")
+    return port
+
+
+def identity_payload(port, instance=None):
+    payload = {
+        "service": SERVICE_ID,
+        "protocol": CORE_PROTOCOL,
+        "port": port,
+        "pid": os.getpid(),
+    }
+    if instance:
+        payload["instance_id"] = instance.get("instance_id")
+        payload["started_at"] = instance.get("started_at")
+    return payload
+
+
+def probe(port):
+    request = Request(
+        f"http://127.0.0.1:{port}/api/v1/system/identity",
+        headers={"User-Agent": "Dragon-Tooru-Launcher/0.1"},
+    )
+    try:
+        with urlopen(request, timeout=1.5) as response:
+            result = json.load(response)
+    except (OSError, ValueError, TypeError):
+        return False
+    return (
+        isinstance(result, dict)
+        and result.get("service") == SERVICE_ID
+        and result.get("protocol") == CORE_PROTOCOL
+        and result.get("port") == port
+    )
+
+
+def make_handler(storage, ai, port, instance=None):
     class Handler(BaseHTTPRequestHandler):
         def send_json(self, data, status=200):
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -42,6 +84,8 @@ def make_handler(storage, ai, port):
             url = urlsplit(self.path)
             query = parse_qs(url.query)
             try:
+                if url.path == "/api/v1/system/identity":
+                    return self.send_json(identity_payload(port, instance))
                 if url.path == "/api/v1/system/status":
                     db = storage.health()
                     free = shutil.disk_usage(ROOT).free
@@ -52,6 +96,8 @@ def make_handler(storage, ai, port):
                             "storage": "ok" if free > 100_000_000 else "warning",
                             "free_bytes": free,
                             "ai": ai.health(),
+                            "single_instance": "ok" if instance else "unverified",
+                            "instance": instance or {},
                         }
                     )
                 if url.path == "/api/v1/projects":
@@ -143,22 +189,44 @@ def make_handler(storage, ai, port):
     return Handler
 
 
-def main():
-    port = int(os.environ.get("TOORU_PORT", "8765"))
-    if not 1024 <= port <= 65535:
-        raise ValueError("TOORU_PORT должен быть в диапазоне 1024–65535")
-    storage = Storage(ROOT)
-    server = ThreadingHTTPServer(
-        ("127.0.0.1", port), make_handler(storage, Ollama(), port)
-    )
-    print(f"Дракончик Тоору: http://127.0.0.1:{port}", flush=True)
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    port = configured_port()
+    if argv == ["--probe"]:
+        return 0 if probe(port) else 1
+    if argv:
+        print("Неизвестные параметры запуска: " + " ".join(argv), file=sys.stderr)
+        return 64
+
     try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        server.server_close()
+        with InstanceLock(ROOT, port) as lock:
+            storage = Storage(ROOT)
+            ai = Ollama()
+            try:
+                server = ThreadingHTTPServer(
+                    ("127.0.0.1", port),
+                    make_handler(storage, ai, port, lock.snapshot()),
+                )
+            except OSError:
+                print(
+                    f"Не удалось занять локальный порт {port}. "
+                    "Возможно, его использует другая программа.",
+                    file=sys.stderr,
+                )
+                return 3
+
+            print(f"Дракончик Тоору: http://127.0.0.1:{port}", flush=True)
+            try:
+                server.serve_forever()
+            except KeyboardInterrupt:
+                pass
+            finally:
+                server.server_close()
+    except InstanceAlreadyRunning as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

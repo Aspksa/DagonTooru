@@ -11,18 +11,24 @@ if not errorlevel 1 (set "TOORU_PY=python" & goto launch)
 echo Python не найден. Запустите SETUP.bat для инструкции.
 pause
 exit /b 1
+
 :launch
-curl.exe --silent --fail http://127.0.0.1:8765/api/v1/system/status >nul 2>nul
+%TOORU_PY% -m core.server --probe >nul 2>nul
 if not errorlevel 1 goto browser
+
 start "Tooru Core" /min cmd /c "%TOORU_PY% -m core.server"
 for /l %%i in (1,1,20) do (
-    curl.exe --silent --fail http://127.0.0.1:8765/api/v1/system/status >nul 2>nul
+    %TOORU_PY% -m core.server --probe >nul 2>nul
     if not errorlevel 1 goto browser
     timeout /t 1 /nobreak >nul
 )
-echo Не удалось запустить ядро. Проверьте сообщение в окне Tooru Core.
+
+echo Не удалось запустить ядро Дракончика Тоору.
+echo Возможно, порт 8765 занят другой программой или ядро завершилось с ошибкой.
+echo Для диагностики запустите вручную: %TOORU_PY% -m core.server
 pause
 exit /b 1
+
 :browser
 start "" "http://127.0.0.1:8765/"
 exit /b 0
