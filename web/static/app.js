@@ -22,7 +22,10 @@ async function loadStatus(){
   const grid=$('status-grid');grid.replaceChildren();
   try{const s=await api('system/status');$('core-badge').textContent='✅ Ядро работает';$('core-badge').className='badge';
     $('ai-badge').textContent=s.ai.status==='ok'?'✅ Ollama доступна':'⚠️ AI не подключён';$('ai-badge').className='badge '+(s.ai.status==='ok'?'':'warn');
-    [['Ядро',s.core],['SQLite',s.database],['Хранилище',s.storage],['AI',s.ai.status],['AI адрес',s.ai.url],['Модель',s.ai.selected||'не выбрана'],['Свободно',Math.round(s.free_bytes/1024/1024)+' МБ']].forEach(([label,value])=>{
+    const recovery=s.recovery||{};
+    const recoveryLabels={ok:'✅ Норма',warning:'⚠️ Требует внимания',error:'❌ Ошибка',unverified:'⚪ Не проверено'};
+    const shutdownLabels={first_start:'Первый запуск',clean:'Штатное',unclean:'Аварийное',unknown:'Неизвестно'};
+    [['Ядро',s.core],['SQLite',s.database],['Хранилище',s.storage],['Один экземпляр',s.single_instance||'unverified'],['Crash Recovery',recoveryLabels[s.crash_recovery]||s.crash_recovery||'⚪ Не проверено'],['Предыдущее завершение',shutdownLabels[recovery.previous_shutdown]||recovery.previous_shutdown||'нет данных'],['Проверка восстановления',recovery.recovery_status||'нет данных'],['AI',s.ai.status],['AI адрес',s.ai.url],['Модель',s.ai.selected||'не выбрана'],['Свободно',Math.round(s.free_bytes/1024/1024)+' МБ']].forEach(([label,value])=>{
       const card=document.createElement('div');card.className='status-item';const strong=document.createElement('strong');strong.textContent=label;const span=document.createElement('span');span.textContent=value;card.append(strong,span);grid.append(card)})
   }catch(e){$('core-badge').textContent='❌ Ядро недоступно';$('core-badge').className='badge warn';feedback(e.message)}
 }
