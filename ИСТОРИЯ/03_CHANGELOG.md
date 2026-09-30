@@ -8,7 +8,9 @@
 
 Добавлены резервная копия SQLite с `PRAGMA integrity_check` и SHA-256, миграции `database/migrations/NNN_*.sql` с `PRAGMA user_version`, а также восстановление SQLite из `backups/` с обязательной проверкой и safety-backup текущей базы.
 
-Добавлена защита одного экземпляра Tooru Core через OS-level lock `runtime_state/core.lock`. Добавлены identity endpoint и режим `python -m core.server --probe`; launcher больше не принимает любой HTTP-ответ на порту 8765 за ядро Тоору.
+Добавлена защита одного экземпляра Tooru Core через OS-level lock `runtime_state/core.lock`. Добавлены identity endpoint и режим `python -m core.server --probe`; launcher больше не принимает любой HTTP-ответ на рабочем порту за ядро Тоору.
+
+Закрыта гонка запуска со старой версией ядра или чужим сервисом: порядок старта изменён на `instance lock → bind localhost port → Storage/migrations → AI → serve`. При конфликте порта новый процесс завершается до открытия SQLite. Launcher согласован с `TOORU_PORT`.
 
 `SETUP.bat` переработан из справочного файла в проверяемый portable installer. Он:
 - определяет AMD64/ARM64/x86;
