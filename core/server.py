@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 
 from .ai import Ollama
 from .instance import InstanceAlreadyRunning, InstanceLock, SERVICE_ID
+from .recovery import RuntimeState
 from .storage import Storage
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -62,7 +63,7 @@ def probe(port):
     )
 
 
-def make_handler(storage, ai, port, instance=None):
+def make_handler(storage, ai, port, instance=None, runtime=None):
     class Handler(BaseHTTPRequestHandler):
         def send_json(self, data, status=200):
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -98,6 +99,7 @@ def make_handler(storage, ai, port, instance=None):
                             "ai": ai.health(),
                             "single_instance": "ok" if instance else "unverified",
                             "instance": instance or {},
+                            "runtime": runtime or {},
                         }
                     )
                 if url.path == "/api/v1/projects":
@@ -200,28 +202,70 @@ def main(argv=None):
 
     try:
         with InstanceLock(ROOT, port) as lock:
-            storage = Storage(ROOT)
-            ai = Ollama()
+            runtime = RuntimeState(ROOT)
             try:
-                server = ThreadingHTTPServer(
-                    ("127.0.0.1", port),
-                    make_handler(storage, ai, port, lock.snapshot()),
-                )
+                runtime.begin(lock.snapshot())
             except OSError:
                 print(
-                    f"Не удалось занять локальный порт {port}. "
-                    "Возможно, его использует другая программа.",
+                    "Не удалось записать runtime_state/state.json. Проверьте доступ к диску.",
                     file=sys.stderr,
                 )
-                return 3
+                return 5
 
-            print(f"Дракончик Тоору: http://127.0.0.1:{port}", flush=True)
+            exit_reason = "normal"
             try:
-                server.serve_forever()
-            except KeyboardInterrupt:
-                pass
+                storage = Storage(ROOT)
+                db_status = storage.health()
+                if runtime.snapshot().get("previous_unclean_shutdown"):
+                    runtime.record_recovery(db_status["database"])
+                    if db_status["database"] != "ok":
+                        print(
+                            "После некорректного завершения SQLite не прошла проверку целостности.",
+                            file=sys.stderr,
+                        )
+                        exit_reason = "recovery_failed"
+                        return 4
+                    print(
+                        "Обнаружено предыдущее некорректное завершение. SQLite проверена: ok.",
+                        flush=True,
+                    )
+
+                ai = Ollama()
+                try:
+                    server = ThreadingHTTPServer(
+                        ("127.0.0.1", port),
+                        make_handler(
+                            storage,
+                            ai,
+                            port,
+                            lock.snapshot(),
+                            runtime.snapshot(),
+                        ),
+                    )
+                except OSError:
+                    print(
+                        f"Не удалось занять локальный порт {port}. "
+                        "Возможно, его использует другая программа.",
+                        file=sys.stderr,
+                    )
+                    exit_reason = "port_unavailable"
+                    return 3
+
+                print(f"Дракончик Тоору: http://127.0.0.1:{port}", flush=True)
+                try:
+                    server.serve_forever()
+                except KeyboardInterrupt:
+                    pass
+                finally:
+                    server.server_close()
+            except Exception:
+                exit_reason = "startup_error"
+                raise
             finally:
-                server.server_close()
+                try:
+                    runtime.finish(exit_reason)
+                except OSError:
+                    print("Не удалось записать clean-shutdown marker.", file=sys.stderr)
     except InstanceAlreadyRunning as exc:
         print(str(exc), file=sys.stderr)
         return 2
