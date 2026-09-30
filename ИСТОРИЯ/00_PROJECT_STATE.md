@@ -4,18 +4,18 @@
 
 Версия 0.1.0. Статус проекта: IN_PROGRESS.
 
-IMPLEMENTED: локальный Python HTTP API, SQLite, разделение памяти personal/home/work и по проектам, два исходных рабочих проекта, создание проектов, локальный Ollama-адаптер, веб-интерфейс, частичная диагностика, online резервная копия SQLite с SHA-256, миграции SQLite через `database/migrations/`, восстановление проверенной копии базы через API и защита одного экземпляра Tooru Core.
+IMPLEMENTED: локальный Python HTTP API, SQLite, разделение памяти personal/home/work и по проектам, два исходных рабочих проекта, создание проектов, локальный Ollama-адаптер, веб-интерфейс, частичная диагностика, online резервная копия SQLite с SHA-256, миграции SQLite, восстановление проверенной копии базы через API и защита одного экземпляра Tooru Core.
 
-Single-instance protection использует OS-level lock файла `runtime_state/core.lock`: на Windows — `msvcrt.locking`, на Linux/macOS — `fcntl.flock`. Lock-файл содержит диагностические метаданные, но источником истины является блокировка ОС. При аварийном завершении процесса блокировка освобождается ОС.
+Single-instance protection использует OS-level lock `runtime_state/core.lock`. Launcher проверяет настоящий Tooru Core через `/api/v1/system/identity` и режим `python -m core.server --probe`.
 
-Launcher больше не считает любой ответ на порту 8765 работающей Тоору: он вызывает `python -m core.server --probe`, который проверяет специальный endpoint `/api/v1/system/identity` и идентификатор `dragon-tooru-core`.
+Portable Python installer: IN_PROGRESS. `SETUP.bat` теперь умеет выбрать архитектуру Windows (AMD64/ARM64/x86), скачать официальный Python 3.14.7 embeddable ZIP с python.org, проверить зафиксированный SHA-256 через `certutil`, распаковать через `tar.exe` в staging, добавить корень проекта в штатный `python*._pth`, проверить `import core.server` и только затем активировать `runtime/python`. Предыдущий runtime сохраняется для отката до успешной финальной проверки. PowerShell не используется.
+
+Зафиксированные SHA-256 взяты из официального Windows release manifest Python 3.14.7. Контрактные тесты `tests/test_setup_contract.py` проверяют URLs, hashes, переносимые пути, отсутствие PowerShell-команды, staging и rollback.
 
 Схема SQLite сейчас версии 1. Перед восстановлением автоматически создаётся safety-backup текущей базы.
 
-Адаптер настроен на установленный пользователем Ollama `127.0.0.1:11435` с моделью `tooru-local:4b`. Пользователь ранее подтвердил, что сайт и диалог с AI работают на Windows.
+Адаптер настроен на локальный Ollama `127.0.0.1:11435` с моделью `tooru-local:4b`.
 
-Проверено в Linux: предыдущие 10 тестов ядра были зелёными; в текущей сессии отдельно прошли 4 новых теста single-instance/identity и smoke-проверка освобождения OS-lock после принудительного завершения дочернего процесса. Полная Windows/SSD-проверка нового lock-механизма ещё нужна.
+Не подтверждено на пользовательской Windows/SSD: фактическая загрузка Python через новый `SETUP.bat`, распаковка штатным `tar.exe`, настройка `._pth`, rollback и повторный запуск launcher. Поэтому portable installer пока не переводится в полностью IMPLEMENTED.
 
-IN_PROGRESS: полноценный Backup Manager. Сейчас резервируется и восстанавливается только SQLite; UI восстановления отсутствует; проверка миграции, восстановления и single-instance на пользовательской Windows/SSD ещё не выполнена.
-
-PLANNED: автоматическое получение portable Python, полноценные AI provider/model manager, Internet Gateway/почта, очередь, события, мобильные приложения, публичная многопользовательская версия, полное резервирование файлов, обновление, safe mode и подписанные релизы.
+PLANNED: полноценные AI provider/model manager, Internet Gateway/почта, очередь, события, мобильные приложения, публичная многопользовательская версия, полный Backup Manager, Crash Recovery/Safe Mode/Maintenance Mode, обновление и подписанные релизы.

@@ -4,16 +4,20 @@
 
 Версия: 0.1.0.
 
-Сделано в текущей сессии: реализована защита одного экземпляра Tooru Core через OS-level lock `runtime_state/core.lock`; добавлены `core/instance.py`, identity endpoint `/api/v1/system/identity`, режим `python -m core.server --probe` и проверка identity в `ДракончикТоору.bat`.
+Сделано: добавлен проверяемый portable Python installer в `SETUP.bat`. Закреплён официальный Python 3.14.7 embeddable package для AMD64/ARM64/x86 и SHA-256 из официального Windows release manifest. Реализованы HTTPS download, SHA-256 verification, staging `runtime/python.new`, настройка `python*._pth`, проверка `import core.server`, безопасная активация и rollback предыдущего runtime.
 
-Проверено в Linux: 4 новых теста single-instance/identity прошли; отдельно проверено освобождение OS-lock после завершения процесса-владельца. Новые Python-файлы успешно компилируются. Предыдущие 10 тестов ядра были зелёными до этого изменения.
+Добавлен `tests/test_setup_contract.py`; 4 контрактных теста прошли в Linux harness. Подтверждено отсутствие жёстких букв диска и PowerShell-команды.
 
-Изменённые файлы: `core/instance.py`, `core/server.py`, `tests/test_instance.py`, `ДракончикТоору.bat` и документация `ИСТОРИЯ/`.
+Не закончено: функциональная проверка нового `SETUP.bat` на Windows/внешнем SSD. Нельзя переводить installer в полностью IMPLEMENTED до реального запуска.
 
-Не закончено: ручная Windows/SSD-проверка повторного запуска; полная повторная прогонка объединённого набора тестов в пользовательском checkout; UI восстановления; полный Backup Manager.
+Следующая практическая проверка на Windows:
+1. закрыть Tooru Core;
+2. временно переименовать существующий `runtime/python`, если нужно проверить чистую установку;
+3. запустить `SETUP.bat`;
+4. убедиться, что показывается Python 3.14.7 и создаётся `runtime/python/TOORU_RUNTIME.txt`;
+5. запустить `ДракончикТоору.bat` и проверить сайт/AI;
+6. повторно запустить launcher и проверить один экземпляр.
 
-Следующая практическая проверка на Windows: обновить файлы, закрыть старый Tooru Core, запустить `ДракончикТоору.bat`, затем запустить его повторно. Второй запуск должен открыть уже работающий интерфейс и не создавать второй процесс ядра. После аварийного закрытия ядра новый запуск должен снова успешно стартовать.
+Следующая задача разработки после этого: Crash Recovery и `runtime_state/state.json` с clean-shutdown marker, затем Safe Mode / Maintenance Mode.
 
-Следующая задача разработки: безопасный portable Python installer без PowerShell — только официальный источник, зафиксированный SHA-256, проверка архива до распаковки и пути относительно корня проекта.
-
-Следующий ChatGPT обязан сначала прочитать `AGENTS.md`, всю `ИСТОРИЯ/`, затем `core/instance.py`, `core/server.py`, launcher и тесты.
+Следующий ChatGPT обязан сначала прочитать `AGENTS.md`, всю `ИСТОРИЯ/`, затем `SETUP.bat`, `core/instance.py`, `core/server.py` и тесты.
