@@ -10,6 +10,10 @@
 
 Добавлена защита одного экземпляра Tooru Core. Новый модуль `core/instance.py` удерживает OS-level lock `runtime_state/core.lock`: Windows использует `msvcrt.locking`, Linux/macOS — `fcntl.flock`. Повторный запуск останавливается до открытия SQLite.
 
-Добавлен `GET /api/v1/system/identity` и режим `python -m core.server --probe`. Launcher теперь проверяет identity Тоору, а не просто наличие HTTP-ответа на порту 8765.
+Добавлен `GET /api/v1/system/identity` и режим `python -m core.server --probe`. Launcher теперь проверяет identity Тоору, а не просто наличие HTTP-ответа на порту.
 
-Добавлены 4 теста single-instance/identity. В Linux отдельно проверено автоматическое освобождение OS-lock после завершения процесса-владельца.
+Порядок запуска усилен до `instance lock → bind localhost port → Storage/migrations → AI → serve`. Это исключает открытие SQLite новым ядром, если порт ещё занят старой версией Тоору или другой программой.
+
+Launcher теперь использует тот же `TOORU_PORT`, что и ядро, включая URL открываемого браузера и диагностическое сообщение.
+
+Добавлены 4 теста single-instance/identity. В Linux отдельно проверено автоматическое освобождение OS-lock после принудительного завершения процесса-владельца.

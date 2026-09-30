@@ -200,12 +200,10 @@ def main(argv=None):
 
     try:
         with InstanceLock(ROOT, port) as lock:
-            storage = Storage(ROOT)
-            ai = Ollama()
             try:
                 server = ThreadingHTTPServer(
                     ("127.0.0.1", port),
-                    make_handler(storage, ai, port, lock.snapshot()),
+                    make_handler(None, None, port, lock.snapshot()),
                 )
             except OSError:
                 print(
@@ -215,11 +213,17 @@ def main(argv=None):
                 )
                 return 3
 
-            print(f"Дракончик Тоору: http://127.0.0.1:{port}", flush=True)
             try:
-                server.serve_forever()
-            except KeyboardInterrupt:
-                pass
+                storage = Storage(ROOT)
+                ai = Ollama()
+                server.RequestHandlerClass = make_handler(
+                    storage, ai, port, lock.snapshot()
+                )
+                print(f"Дракончик Тоору: http://127.0.0.1:{port}", flush=True)
+                try:
+                    server.serve_forever()
+                except KeyboardInterrupt:
+                    pass
             finally:
                 server.server_close()
     except InstanceAlreadyRunning as exc:
