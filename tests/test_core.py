@@ -1,16 +1,19 @@
 """Core integration checks. Автор: Матиенко Антон Александрович · Aspksa@yandex.ru"""
 
 import json
+import os
 import tempfile
 import threading
 import unittest
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from core.server import make_handler
 from core.storage import Storage
+from core.ai import Ollama
 
 
 class FakeAI:
@@ -72,6 +75,55 @@ class CoreTests(unittest.TestCase):
     def test_database_integrity_and_initial_projects(self):
         self.assertEqual(self.request("system/status")[1]["database"], "ok")
         self.assertEqual(len(self.request("projects?scope=work")[1]["projects"]), 2)
+
+
+class OllamaTests(unittest.TestCase):
+    def test_installed_model_is_selected_and_chat_uses_it(self):
+        captured = []
+
+        class Stub(BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_GET(self):
+                self.assert_path("/api/tags")
+                self.answer({"models": [{"name": "tooru-local:4b"}]})
+
+            def do_POST(self):
+                self.assert_path("/api/chat")
+                captured.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+                self.answer({"message": {"content": "Привет, я Тоору"}})
+
+            def assert_path(self, expected):
+                if self.path != expected:
+                    raise AssertionError(self.path)
+
+            def answer(self, result):
+                body = json.dumps(result).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Stub)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            with patch.dict(os.environ, {"TOORU_OLLAMA_URL": f"http://127.0.0.1:{server.server_port}"}, clear=False):
+                ai = Ollama()
+                self.assertEqual(ai.health()["status"], "ok")
+                self.assertEqual(ai.chat("Привет", ["личная запись"]), "Привет, я Тоору")
+            self.assertEqual(captured[0]["model"], "tooru-local:4b")
+            self.assertIn("личная запись", captured[0]["messages"][0]["content"])
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_remote_ai_address_is_rejected(self):
+        with patch.dict(os.environ, {"TOORU_OLLAMA_URL": "http://example.com:11435"}):
+            with self.assertRaises(ValueError):
+                Ollama()
 
 
 if __name__ == "__main__":
