@@ -61,11 +61,9 @@ class RecoveryState:
         self.directory.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(
             self.data, ensure_ascii=False, indent=2, sort_keys=True
-        ) + "
-"
+        ) + "\n"
         try:
-            with self.temporary.open("w", encoding="utf-8", newline="
-") as stream:
+            with self.temporary.open("w", encoding="utf-8", newline="\n") as stream:
                 stream.write(payload)
                 stream.flush()
                 os.fsync(stream.fileno())
