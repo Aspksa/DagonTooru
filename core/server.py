@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 
 from .ai import Ollama
 from .instance import InstanceAlreadyRunning, InstanceLock, SERVICE_ID
+from .recovery import RecoveryState
 from .storage import Storage
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -62,7 +63,7 @@ def probe(port):
     )
 
 
-def make_handler(storage, ai, port, instance=None):
+def make_handler(storage, ai, port, instance=None, recovery=None):
     class Handler(BaseHTTPRequestHandler):
         def send_json(self, data, status=200):
             body = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -89,6 +90,15 @@ def make_handler(storage, ai, port, instance=None):
                 if url.path == "/api/v1/system/status":
                     db = storage.health()
                     free = shutil.disk_usage(ROOT).free
+                    recovery_state = recovery.snapshot() if recovery else {}
+                    if not recovery:
+                        crash_recovery = "unverified"
+                    elif recovery_state.get("recovery_status") == "error":
+                        crash_recovery = "error"
+                    elif recovery_state.get("recovery_needed"):
+                        crash_recovery = "warning"
+                    else:
+                        crash_recovery = "ok"
                     return self.send_json(
                         {
                             "core": "ok",
@@ -98,6 +108,8 @@ def make_handler(storage, ai, port, instance=None):
                             "ai": ai.health(),
                             "single_instance": "ok" if instance else "unverified",
                             "instance": instance or {},
+                            "crash_recovery": crash_recovery,
+                            "recovery": recovery_state,
                         }
                     )
                 if url.path == "/api/v1/projects":
@@ -213,19 +225,46 @@ def main(argv=None):
                 )
                 return 3
 
+            recovery = None
+            clean_reason = None
             try:
+                recovery = RecoveryState(ROOT)
+                recovery.start(lock.snapshot())
                 storage = Storage(ROOT)
+                if recovery.snapshot().get("recovery_needed"):
+                    db_status = storage.health()["database"]
+                    checked = recovery.record_recovery(db_status)
+                    if checked["recovery_status"] != "ok":
+                        print(
+                            "После аварийного завершения SQLite не прошла проверку целостности.",
+                            file=sys.stderr,
+                        )
+                        return 4
+                    print(
+                        "Crash Recovery: обнаружено незавершённое предыдущее состояние; "
+                        "SQLite проверена: ok.",
+                        flush=True,
+                    )
+
                 ai = Ollama()
                 server.RequestHandlerClass = make_handler(
-                    storage, ai, port, lock.snapshot()
+                    storage,
+                    ai,
+                    port,
+                    lock.snapshot(),
+                    recovery,
                 )
+                recovery.mark_running()
                 print(f"Дракончик Тоору: http://127.0.0.1:{port}", flush=True)
                 try:
                     server.serve_forever()
+                    clean_reason = "server_stopped"
                 except KeyboardInterrupt:
-                    pass
+                    clean_reason = "keyboard_interrupt"
             finally:
                 server.server_close()
+                if recovery is not None and clean_reason:
+                    recovery.mark_clean_shutdown(clean_reason)
     except InstanceAlreadyRunning as exc:
         print(str(exc), file=sys.stderr)
         return 2
