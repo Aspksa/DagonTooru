@@ -1,7 +1,15 @@
-"""Core integration checks. Автор: Матиенко Антон Александрович · Aspksa@yandex.ru"""
+"""Core integration checks.
 
+Дракончик Тоору
+Автор: Матиенко Антон Александрович
+E-mail: Aspksa@yandex.ru
+"""
+
+import hashlib
 import json
 import os
+import shutil
+import sqlite3
 import tempfile
 import threading
 import unittest
@@ -11,9 +19,9 @@ from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+from core.ai import Ollama
 from core.server import make_handler
 from core.storage import Storage
-from core.ai import Ollama
 
 
 class FakeAI:
@@ -28,10 +36,17 @@ class CoreTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.db = Storage(Path(self.temp.name))
+        root = Path(self.temp.name)
+        migrations = root / "database" / "migrations"
+        migrations.mkdir(parents=True)
+        source_migrations = Path(__file__).resolve().parents[1] / "database" / "migrations"
+        for source in source_migrations.glob("*.sql"):
+            shutil.copy2(source, migrations / source.name)
+        self.db = Storage(root)
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(self.db, FakeAI(), 0))
-        # Handler validates the actual ephemeral port.
-        self.server.RequestHandlerClass = make_handler(self.db, FakeAI(), self.server.server_port)
+        self.server.RequestHandlerClass = make_handler(
+            self.db, FakeAI(), self.server.server_port
+        )
         self.worker = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.worker.start()
         self.addCleanup(self.server.server_close)
@@ -43,8 +58,11 @@ class CoreTests(unittest.TestCase):
             headers["Content-Type"] = "application/json"
             if origin:
                 headers["Origin"] = f"http://127.0.0.1:{self.server.server_port}"
-        req = Request(f"http://127.0.0.1:{self.server.server_port}/api/v1/{path}",
-                      None if data is None else json.dumps(data).encode(), headers)
+        req = Request(
+            f"http://127.0.0.1:{self.server.server_port}/api/v1/{path}",
+            None if data is None else json.dumps(data).encode(),
+            headers,
+        )
         try:
             with urlopen(req) as response:
                 return response.status, json.load(response)
@@ -55,26 +73,66 @@ class CoreTests(unittest.TestCase):
         home = self.request("projects", {"name": "Дом", "scope": "home"})[1]["id"]
         work = "toori-network-drive"
         self.request("memory", {"text": "личный секрет", "scope": "personal"})
-        self.request("memory", {"text": "домашняя запись", "scope": "home", "project_id": home})
-        self.request("memory", {"text": "рабочая запись", "scope": "work", "project_id": work})
+        self.request(
+            "memory", {"text": "домашняя запись", "scope": "home", "project_id": home}
+        )
+        self.request(
+            "memory", {"text": "рабочая запись", "scope": "work", "project_id": work}
+        )
         code, result = self.request("memory?scope=work&project_id=" + work)
         self.assertEqual(code, 200)
         self.assertEqual([m["text"] for m in result["memories"]], ["рабочая запись"])
-        code, result = self.request("chat", {"message": "тест", "scope": "work", "project_id": work})
+        code, result = self.request(
+            "chat", {"message": "тест", "scope": "work", "project_id": work}
+        )
         self.assertEqual(result["reply"], "рабочая запись")
-        code, _ = self.request("memory", {"text": "утечка", "scope": "work", "project_id": home})
+        code, _ = self.request(
+            "memory", {"text": "утечка", "scope": "work", "project_id": home}
+        )
         self.assertEqual(code, 400)
         code, result = self.request("chat", {"message": "тест", "scope": "personal"})
         self.assertEqual(result["reply"], "личный секрет")
 
     def test_cross_origin_write_rejected(self):
-        code, _ = self.request("memory", {"text": "чужое", "scope": "personal"}, origin=False)
+        code, _ = self.request(
+            "memory", {"text": "чужое", "scope": "personal"}, origin=False
+        )
         self.assertEqual(code, 403)
         self.assertEqual(self.request("memory?scope=personal")[1]["memories"], [])
 
-    def test_database_integrity_and_initial_projects(self):
-        self.assertEqual(self.request("system/status")[1]["database"], "ok")
+    def test_database_integrity_initial_projects_and_schema_version(self):
+        status = self.request("system/status")[1]
+        self.assertEqual(status["database"], "ok")
+        self.assertEqual(status["schema_version"], 1)
         self.assertEqual(len(self.request("projects?scope=work")[1]["projects"]), 2)
+
+    def test_migration_from_existing_version_zero_preserves_data(self):
+        root = Path(self.temp.name) / "legacy"
+        migrations = root / "database" / "migrations"
+        migrations.mkdir(parents=True)
+        source_migrations = Path(__file__).resolve().parents[1] / "database" / "migrations"
+        for source in source_migrations.glob("*.sql"):
+            shutil.copy2(source, migrations / source.name)
+        db_path = root / "database" / "tooru.db"
+        with sqlite3.connect(db_path) as con:
+            con.executescript(
+                """
+                CREATE TABLE projects (
+                    id TEXT PRIMARY KEY, name TEXT NOT NULL, scope TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE TABLE memories (
+                    id TEXT PRIMARY KEY, text TEXT NOT NULL, scope TEXT NOT NULL,
+                    project_id TEXT, source TEXT NOT NULL DEFAULT 'user',
+                    status TEXT NOT NULL DEFAULT 'VERIFIED', created_at TEXT NOT NULL
+                );
+                INSERT INTO memories(id,text,scope,project_id,created_at)
+                VALUES ('legacy','сохранить','personal',NULL,'2026-09-30T00:00:00+00:00');
+                """
+            )
+        migrated = Storage(root)
+        self.assertEqual(migrated.schema_version(), 1)
+        self.assertEqual(migrated.memories("personal")[0]["text"], "сохранить")
 
     def test_backup_contains_live_memory_and_passes_integrity(self):
         self.request("memory", {"text": "важное", "scope": "personal"})
@@ -82,16 +140,39 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(code, 201)
         backup = Path(self.temp.name) / result["file"]
         self.assertTrue(backup.is_file())
-        self.assertTrue(backup.with_suffix(".db.sha256").is_file())
-        import hashlib
-        import sqlite3
+        self.assertTrue(Path(str(backup) + ".sha256").is_file())
         self.assertEqual(hashlib.sha256(backup.read_bytes()).hexdigest(), result["sha256"])
+        self.assertEqual(result["schema_version"], 1)
         with sqlite3.connect(backup) as con:
             self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
             self.assertEqual(con.execute("SELECT text FROM memories").fetchone()[0], "важное")
         self.request("memory", {"text": "после копии", "scope": "personal"})
         with sqlite3.connect(backup) as con:
             self.assertEqual(con.execute("SELECT COUNT(*) FROM memories").fetchone()[0], 1)
+
+    def test_restore_backup_reverts_database_and_creates_safety_backup(self):
+        self.request("memory", {"text": "до копии", "scope": "personal"})
+        backup = self.request("backups", {})[1]
+        self.request("memory", {"text": "после копии", "scope": "personal"})
+        code, restored = self.request(
+            "backups/restore", {"file": backup["file"], "sha256": backup["sha256"]}
+        )
+        self.assertEqual(code, 200)
+        self.assertTrue((Path(self.temp.name) / restored["safety_backup"]).is_file())
+        memories = self.request("memory?scope=personal")[1]["memories"]
+        self.assertEqual([m["text"] for m in memories], ["до копии"])
+        self.assertEqual(restored["schema_version"], 1)
+
+    def test_restore_rejects_wrong_checksum_without_touching_live_data(self):
+        self.request("memory", {"text": "до копии", "scope": "personal"})
+        backup = self.request("backups", {})[1]
+        self.request("memory", {"text": "живые данные", "scope": "personal"})
+        code, _ = self.request(
+            "backups/restore", {"file": backup["file"], "sha256": "0" * 64}
+        )
+        self.assertEqual(code, 503)
+        memories = self.request("memory?scope=personal")[1]["memories"]
+        self.assertEqual([m["text"] for m in memories], ["живые данные", "до копии"])
 
 
 class OllamaTests(unittest.TestCase):
@@ -127,7 +208,11 @@ class OllamaTests(unittest.TestCase):
         worker = threading.Thread(target=server.serve_forever, daemon=True)
         worker.start()
         try:
-            with patch.dict(os.environ, {"TOORU_OLLAMA_URL": f"http://127.0.0.1:{server.server_port}"}, clear=False):
+            with patch.dict(
+                os.environ,
+                {"TOORU_OLLAMA_URL": f"http://127.0.0.1:{server.server_port}"},
+                clear=False,
+            ):
                 ai = Ollama()
                 self.assertEqual(ai.health()["status"], "ok")
                 self.assertEqual(ai.chat("Привет", ["личная запись"]), "Привет, я Тоору")
