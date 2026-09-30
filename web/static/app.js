@@ -33,6 +33,7 @@ async function openProject(project){selected=project;$('selected-project').textC
 function form(id,handler){$(id).addEventListener('submit',async e=>{e.preventDefault();feedback();const button=e.target.querySelector('[type=submit]');button.disabled=true;try{await handler();e.target.reset()}catch(err){feedback(err.message)}finally{button.disabled=false}})}
 document.querySelectorAll('#menu button').forEach(b=>b.onclick=()=>setPage(b.dataset.page));
 $('refresh-status').onclick=loadStatus;$('close-project').onclick=()=>$('project-memory').classList.add('hidden');
+$('create-backup').onclick=async()=>{const button=$('create-backup');button.disabled=true;$('backup-result').textContent='⏳ Создаётся копия…';try{const r=await api('backups',{method:'POST',body:'{}'});$('backup-result').textContent='✅ Копия создана: '+r.file+' ('+Math.round(r.bytes/1024)+' КБ). Рядом сохранена контрольная сумма SHA-256.'}catch(e){$('backup-result').textContent='⚠️ '+e.message}finally{button.disabled=false}};
 form('memory-form',async()=>{await api('memory',{method:'POST',body:JSON.stringify({text:$('memory-text').value,scope:'personal'})});await loadMemories()});
 form('project-form',async()=>{await api('projects',{method:'POST',body:JSON.stringify({name:$('project-name').value,scope})});await loadProjects()});
 form('project-memory-form',async()=>{if(!selected)throw Error('Выберите проект');await api('memory',{method:'POST',body:JSON.stringify({text:$('project-memory-text').value,scope,project_id:selected.id})});await openProject(selected)});

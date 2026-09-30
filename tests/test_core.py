@@ -76,6 +76,23 @@ class CoreTests(unittest.TestCase):
         self.assertEqual(self.request("system/status")[1]["database"], "ok")
         self.assertEqual(len(self.request("projects?scope=work")[1]["projects"]), 2)
 
+    def test_backup_contains_live_memory_and_passes_integrity(self):
+        self.request("memory", {"text": "важное", "scope": "personal"})
+        code, result = self.request("backups", {})
+        self.assertEqual(code, 201)
+        backup = Path(self.temp.name) / result["file"]
+        self.assertTrue(backup.is_file())
+        self.assertTrue(backup.with_suffix(".db.sha256").is_file())
+        import hashlib
+        import sqlite3
+        self.assertEqual(hashlib.sha256(backup.read_bytes()).hexdigest(), result["sha256"])
+        with sqlite3.connect(backup) as con:
+            self.assertEqual(con.execute("PRAGMA integrity_check").fetchone()[0], "ok")
+            self.assertEqual(con.execute("SELECT text FROM memories").fetchone()[0], "важное")
+        self.request("memory", {"text": "после копии", "scope": "personal"})
+        with sqlite3.connect(backup) as con:
+            self.assertEqual(con.execute("SELECT COUNT(*) FROM memories").fetchone()[0], 1)
+
 
 class OllamaTests(unittest.TestCase):
     def test_installed_model_is_selected_and_chat_uses_it(self):

@@ -93,6 +93,8 @@ def make_handler(storage, ai, port):
                         raise ValueError("Сообщение должно содержать от 1 до 4000 символов")
                     context = [m["text"] for m in storage.memories(data["scope"], data.get("project_id"))[:20]]
                     return self.send_json({"reply": ai.chat(message, context)})
+                if self.path == "/api/v1/backups":
+                    return self.send_json(storage.backup(), 201)
                 return self.send_json({"error": "Не найдено"}, 404)
             except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
                 return self.send_json({"error": "Неверные данные: " + str(exc)}, 400)

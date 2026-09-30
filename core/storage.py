@@ -6,6 +6,9 @@ E-mail: Aspksa@yandex.ru
 
 import sqlite3
 import uuid
+import hashlib
+import os
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -111,3 +114,32 @@ class Storage:
             integrity = con.execute("PRAGMA integrity_check").fetchone()[0]
             version = con.execute("PRAGMA user_version").fetchone()[0]
         return {"database": "ok" if integrity == "ok" else "error", "schema_version": version}
+
+    def backup(self):
+        """Create a consistent snapshot while the core is running."""
+        directory = self.root / "backups"
+        directory.mkdir(parents=True, exist_ok=True)
+        name = "tooru-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8] + ".db"
+        target = directory / name
+        temporary = directory / (name + ".tmp")
+        checksum_tmp = directory / (name + ".sha256.tmp")
+        try:
+            with closing(self.connect()) as source, closing(sqlite3.connect(temporary)) as destination:
+                source.backup(destination)
+                integrity = destination.execute("PRAGMA integrity_check").fetchone()[0]
+                if integrity != "ok":
+                    raise RuntimeError("Проверка резервной копии не прошла")
+            digest = hashlib.sha256()
+            with temporary.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            checksum_tmp.write_text(digest.hexdigest() + "  " + name + "\n", encoding="ascii")
+            os.replace(temporary, target)
+            os.replace(checksum_tmp, directory / (name + ".sha256"))
+            return {"file": "backups/" + name, "sha256": digest.hexdigest(), "bytes": target.stat().st_size}
+        except (sqlite3.Error, OSError) as exc:
+            target.unlink(missing_ok=True)
+            raise RuntimeError("Не удалось создать копию базы. Проверьте свободное место и доступ к диску") from exc
+        finally:
+            temporary.unlink(missing_ok=True)
+            checksum_tmp.unlink(missing_ok=True)
