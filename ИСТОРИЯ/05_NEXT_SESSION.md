@@ -4,23 +4,22 @@
 
 Версия: 0.1.0.
 
-Сделано: добавлен проверяемый portable Python installer в `SETUP.bat`. Закреплён официальный Python 3.14.7 embeddable package для AMD64/ARM64/x86 и SHA-256 из официального Windows release manifest. Реализованы HTTPS download, SHA-256 verification, staging `runtime/python.new`, настройка `python*._pth`, проверка `import core.server`, безопасная активация и rollback предыдущего runtime.
+Сделано в текущей сессии: реализован базовый Crash Recovery через `core/recovery.py` и `runtime_state/state.json`. Сохранён безопасный порядок запуска: `OS-lock → bind рабочего localhost-порта → Crash Recovery state → Storage/migrations → recovery-check → Ollama → server`.
 
-Дополнительно усилен single-instance startup: после OS-lock ядро сначала занимает рабочий localhost-порт и только затем инициализирует `Storage`/миграции и Ollama. Это исключает касание SQLite новым процессом, если порт уже занят старой версией Тоору или другой программой. Launcher использует тот же `TOORU_PORT`.
+После незавершённой или повреждённой предыдущей сессии выполняется `Storage.health()` для SQLite. При `database=ok` recovery фиксируется как успешный; при ошибке обычный запуск останавливается с кодом 4. Необработанная startup/runtime ошибка не пишет clean shutdown.
 
-Проверено в Linux: ранее прошли 10 тестов ядра; 4/4 теста single-instance/identity; отдельный smoke-тест подтвердил освобождение OS-lock после аварийного завершения владельца; 4/4 контрактных теста portable installer. Новые Python-модули успешно проходят `compileall`.
+Добавлены `crash_recovery` и `recovery` в `/api/v1/system/status`. В web-разделе «Настройки» отображаются Crash Recovery, тип предыдущего завершения и результат recovery-проверки.
 
-Не закончено: функциональная проверка нового `SETUP.bat`, `msvcrt.locking`, повторного launcher и конфликта рабочего порта на Windows/внешнем SSD. Нельзя переводить portable installer в полностью IMPLEMENTED до реального запуска.
+Проверено в Linux 2026-09-30: `python -m unittest discover -s tests -v` — 28/28; `python -m compileall -q core tests` — успешно; `node --check web/static/app.js` — успешно. Отдельно проверено, что при конфликте рабочего порта новый процесс не меняет `state.json` и не открывает Storage/SQLite.
 
-Следующая практическая проверка на Windows:
-1. закрыть Tooru Core;
-2. временно переименовать существующий `runtime/python`, если нужно проверить чистую установку;
-3. запустить `SETUP.bat`;
-4. убедиться, что показывается Python 3.14.7 и создаётся `runtime/python/TOORU_RUNTIME.txt`;
-5. запустить `ДракончикТоору.bat` и проверить сайт/AI;
-6. повторно запустить launcher и проверить один экземпляр;
-7. проверить прямой второй запуск `python -m core.server`, аварийное завершение и последующий перезапуск.
+Изменённые файлы: `core/recovery.py`, `core/server.py`, `tests/test_recovery.py`, `web/static/app.js`, README и документация `ИСТОРИЯ/`.
 
-Следующая задача разработки после этого: Crash Recovery и `runtime_state/state.json` с clean-shutdown marker, затем Safe Mode / Maintenance Mode.
+Не закончено: фактическая Windows/SSD-проверка Crash Recovery, portable installer, `msvcrt.locking` и конфликта порта; Safe Mode; Maintenance Mode; полный Backup Manager.
 
-Следующий ChatGPT обязан сначала прочитать `AGENTS.md`, всю `ИСТОРИЯ/`, затем `SETUP.bat`, `core/instance.py`, `core/server.py` и тесты.
+Технический долг: Linux-регрессия на Python 3.13 выдаёт `ResourceWarning` о незакрытых SQLite connection во время существующих backup/restore тестов. Тесты проходят, но lifecycle соединений нужно отдельно проверить и исправить.
+
+Следующая практическая проверка на Windows: запустить ядро, принудительно завершить процесс без штатного shutdown, снова запустить `ДракончикТоору.bat` и убедиться, что в «Настройках» видно предыдущее аварийное завершение и SQLite recovery `ok`; затем проверить штатное закрытие/повторный запуск, повторный launcher и конфликт `TOORU_PORT`.
+
+Следующая задача разработки: Safe Mode на основе `recovery_needed/recovery_status`, затем Maintenance Mode. Safe Mode не должен автоматически менять пользовательские данные; он должен запускать минимальный набор компонентов и диагностику.
+
+Следующий ChatGPT обязан сначала прочитать `AGENTS.md`, всю `ИСТОРИЯ/`, затем `core/recovery.py`, `core/instance.py`, `core/server.py`, launcher и тесты.

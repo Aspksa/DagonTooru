@@ -14,8 +14,11 @@
    - online backup SQLite + SHA-256 — IMPLEMENTED;
    - проверенное восстановление SQLite с safety-backup — IMPLEMENTED;
    - защита одного экземпляра ядра — IMPLEMENTED;
-   - полный Backup Manager для защищаемых каталогов — PLANNED;
-   - Crash Recovery / Safe Mode / Maintenance Mode — PLANNED.
+   - безопасный порядок `lock → bind port → data` — IMPLEMENTED;
+   - базовый Crash Recovery с clean-shutdown marker и SQLite recovery-check — IMPLEMENTED;
+   - Safe Mode — PLANNED;
+   - Maintenance Mode — PLANNED;
+   - полный Backup Manager для защищаемых каталогов — PLANNED.
 3. Менеджер моделей AI, диалоги, настройки и контроль потребления памяти — PLANNED.
 4. Internet Gateway, разрешения, чтение веба и почты с защитой от недоверенного содержимого — PLANNED.
 5. Проверяемые и подписанные обновления из GitHub с откатом — PLANNED.

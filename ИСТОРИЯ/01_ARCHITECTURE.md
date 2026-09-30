@@ -2,20 +2,22 @@
 
 Автор: Матиенко Антон Александрович · Aspksa@yandex.ru
 
-`core.server` запускает один локальный HTTP сервер на 127.0.0.1. `core.storage` управляет SQLite в папке репозитория и проверяет принадлежность проекта области перед чтением и записью. `core.ai` вызывает локальный Ollama и получает только записи явно выбранного контекста. `web/static` обращается к API `/api/v1/`. Отдельный процесс AI не является ядром проекта. Данные пользователя, модели и секреты исключены из Git.
+`core.server` запускает один локальный HTTP сервер на 127.0.0.1. `core.storage` управляет SQLite и политикой контекста. `core.ai` вызывает локальный Ollama. `web/static` работает через `/api/v1/`. Данные пользователя, модели и секреты исключены из Git.
 
-До инициализации SQLite `core.server` захватывает `InstanceLock` в `runtime_state/core.lock`. Windows использует `msvcrt.locking`, Unix-платформы — `fcntl.flock`. Это блокировка ОС, удерживаемая открытым файловым дескриптором на протяжении жизни ядра; аварийное завершение процесса освобождает её автоматически. JSON внутри lock-файла нужен только для диагностики и не определяет факт запущенного экземпляра.
+До доступа к пользовательской базе `core.server` захватывает `InstanceLock` в `runtime_state/core.lock`. Windows использует `msvcrt.locking`, Unix-платформы — `fcntl.flock`. OS-lock является источником истины о работающем экземпляре; JSON внутри lock-файла используется только для диагностики.
 
-Порядок запуска ядра: `InstanceLock → bind 127.0.0.1:TOORU_PORT → Storage/migrations → Ollama → serve_forever`. Поэтому если порт уже занят старой версией Тоору или другой программой, новый процесс завершится до открытия SQLite.
+Порядок запуска ядра: `InstanceLock → bind 127.0.0.1:TOORU_PORT → Crash Recovery state → Storage/migrations → SQLite recovery-check при необходимости → Ollama → serve_forever`. Поэтому если порт уже занят старой версией Тоору или другой программой, новый процесс завершится до изменения `state.json` текущей попыткой и до открытия SQLite.
 
-Для launcher добавлен identity endpoint `GET /api/v1/system/identity`. Команда `python -m core.server --probe` проверяет service id `dragon-tooru-core`, версию протокола и порт. Поэтому посторонний HTTP-сервис на том же порту не принимается за работающую Тоору.
+`core.recovery.RecoveryState` ведёт `runtime_state/state.json`. Запись выполняется атомарно через `state.json.tmp`, flush/fsync и `os.replace`. Сессия сначала получает `state=starting` и `clean_shutdown=false`; после успешной подготовки Storage, AI и HTTP handler состояние переводится в `running`.
 
-Схема SQLite управляется последовательными SQL-файлами `database/migrations/NNN_*.sql`. Версия хранится в `PRAGMA user_version`. При запуске применяются только недостающие миграции; база с более новой схемой, чем поддерживает ядро, отклоняется.
+Только контролируемое завершение работающего сервера записывает `clean_shutdown=true`. Необработанные startup/runtime исключения оставляют marker незавершённым, чтобы следующий запуск обнаружил аварийную сессию.
 
-`core.storage.backup()` использует SQLite online backup API, проверяет `PRAGMA integrity_check` и сохраняет SHA-256 рядом со снимком в `backups/`. UI вызывает `POST /api/v1/backups`.
+При `previous_shutdown=unclean` либо неизвестном/повреждённом предыдущем state ядро выполняет `Storage.health()` до обычного запуска. Если SQLite сообщает `database=ok`, recovery фиксируется как успешный. Если проверка не проходит, обычный запуск прекращается с кодом 4. Safe Mode и Maintenance Mode пока не включаются автоматически.
 
-`core.storage.restore_backup()` принимает только `.db` из локальной папки `backups/`, проверяет SHA-256, целостность SQLite и совместимость версии схемы. Перед заменой рабочей базы создаётся автоматический safety-backup. После восстановления применяются необходимые миграции и повторно проверяется целостность. API: `POST /api/v1/backups/restore`.
+`GET /api/v1/system/status` возвращает `crash_recovery` и объект `recovery`. Web-раздел «Настройки» отображает состояние Crash Recovery, тип предыдущего завершения и результат recovery-проверки.
 
-Копирование и восстановление пока охватывают только SQLite. Файлы проектов вне базы, настройки пользователя, секреты и другие защищаемые каталоги должны войти в будущий Backup Manager.
+Для launcher используется identity endpoint `GET /api/v1/system/identity`; `python -m core.server --probe` проверяет service id `dragon-tooru-core`, версию протокола и порт.
 
-Доступ пока рассчитан на одного владельца на одном компьютере. Система не имеет аутентификации и не должна выставляться в сеть.
+Схема SQLite управляется последовательными `database/migrations/NNN_*.sql` через `PRAGMA user_version`. Backup использует SQLite online backup API, `PRAGMA integrity_check` и SHA-256; restore проверяет источник и создаёт safety-backup.
+
+Доступ пока рассчитан на одного владельца на одном компьютере. Аутентификация отсутствует; сервер не должен выставляться в сеть.

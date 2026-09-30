@@ -4,18 +4,20 @@
 
 Версия 0.1.0. Статус проекта: IN_PROGRESS.
 
-IMPLEMENTED: локальный Python HTTP API, SQLite, разделение памяти personal/home/work и по проектам, два исходных рабочих проекта, создание проектов, локальный Ollama-адаптер, веб-интерфейс, частичная диагностика, online резервная копия SQLite с SHA-256, миграции SQLite, восстановление проверенной копии базы через API и защита одного экземпляра Tooru Core.
+IMPLEMENTED: локальный Python HTTP API, SQLite, разделение памяти personal/home/work и по проектам, два исходных рабочих проекта, создание проектов, локальный Ollama-адаптер, веб-интерфейс, частичная диагностика, online backup SQLite с SHA-256, миграции SQLite, восстановление проверенной копии базы через API, защита одного экземпляра Tooru Core и базовый Crash Recovery.
 
-Single-instance protection использует OS-level lock `runtime_state/core.lock`. Launcher проверяет настоящий Tooru Core через `/api/v1/system/identity` и режим `python -m core.server --probe`. Порядок запуска: lock → bind рабочего localhost-порта → Storage/migrations → Ollama; конфликт порта завершается до открытия SQLite.
+Single-instance protection использует OS-level lock `runtime_state/core.lock`. Launcher проверяет настоящий Tooru Core через `/api/v1/system/identity` и режим `python -m core.server --probe`.
 
-Portable Python installer: IN_PROGRESS. `SETUP.bat` теперь умеет выбрать архитектуру Windows (AMD64/ARM64/x86), скачать официальный Python 3.14.7 embeddable ZIP с python.org, проверить зафиксированный SHA-256 через `certutil`, распаковать через `tar.exe` в staging, добавить корень проекта в штатный `python*._pth`, проверить `import core.server` и только затем активировать `runtime/python`. Предыдущий runtime сохраняется для отката до успешной финальной проверки. PowerShell не используется.
+Фактический порядок запуска: `InstanceLock → bind 127.0.0.1:TOORU_PORT → Crash Recovery state → Storage/migrations → SQLite recovery-check при необходимости → Ollama → serve_forever`. Поэтому конфликт порта завершается до изменения recovery-state текущей попыткой и до открытия SQLite.
 
-Зафиксированные SHA-256 взяты из официального Windows release manifest Python 3.14.7. Контрактные тесты `tests/test_setup_contract.py` проверяют URLs, hashes, переносимые пути, отсутствие PowerShell-команды, staging и rollback.
+Crash Recovery ведёт `runtime_state/state.json` атомарно через `state.json.tmp` + `os.replace`. Фиксируются `starting/running/stopped`, `clean_shutdown`, причина штатного завершения, предыдущее завершение, `recovery_count`, необходимость восстановления и результат проверки.
 
-Схема SQLite сейчас версии 1. Перед восстановлением автоматически создаётся safety-backup текущей базы.
+Если предыдущая сессия была незавершённой либо `state.json` повреждён, ядро до обычного запуска сервера проверяет SQLite через `Storage.health()`. При `database=ok` recovery фиксируется как `ok`; при ошибке обычный запуск прекращается с кодом 4. Необработанная startup/runtime ошибка не записывает clean-shutdown marker.
 
-Адаптер настроен на локальный Ollama `127.0.0.1:11435` с моделью `tooru-local:4b`.
+`/api/v1/system/status` возвращает `crash_recovery` и `recovery`; раздел «Настройки» отображает Crash Recovery, предыдущее завершение и результат recovery-проверки.
 
-Не подтверждено на пользовательской Windows/SSD: фактическая загрузка Python через новый `SETUP.bat`, распаковка штатным `tar.exe`, настройка `._pth`, rollback и повторный запуск launcher. Поэтому portable installer пока не переводится в полностью IMPLEMENTED.
+Portable Python installer: IN_PROGRESS. `SETUP.bat` подготавливает официальный Python 3.14.7 embeddable package для AMD64/ARM64/x86, проверяет SHA-256, использует staging и rollback без PowerShell. Реальная Windows/SSD-проверка installer ещё не выполнена.
 
-PLANNED: полноценные AI provider/model manager, Internet Gateway/почта, очередь, события, мобильные приложения, публичная многопользовательская версия, полный Backup Manager, Crash Recovery/Safe Mode/Maintenance Mode, обновление и подписанные релизы.
+Проверено в Linux 2026-09-30: `python -m unittest discover -s tests -v` — 28/28; `python -m compileall -q core tests` — успешно; `node --check web/static/app.js` — успешно. Тест отдельно подтверждает, что при занятом порту новый процесс не меняет `state.json` и не открывает Storage.
+
+PLANNED: Safe Mode, Maintenance Mode, полный Backup Manager, AI provider/model manager, Internet Gateway/почта, очередь, события, мобильные приложения, публичная многопользовательская версия, updater и подписанные релизы.
