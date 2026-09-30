@@ -36,5 +36,15 @@ $('refresh-status').onclick=loadStatus;$('close-project').onclick=()=>$('project
 form('memory-form',async()=>{await api('memory',{method:'POST',body:JSON.stringify({text:$('memory-text').value,scope:'personal'})});await loadMemories()});
 form('project-form',async()=>{await api('projects',{method:'POST',body:JSON.stringify({name:$('project-name').value,scope})});await loadProjects()});
 form('project-memory-form',async()=>{if(!selected)throw Error('Выберите проект');await api('memory',{method:'POST',body:JSON.stringify({text:$('project-memory-text').value,scope,project_id:selected.id})});await openProject(selected)});
-form('chat-form',async()=>{const message=$('message').value;const log=$('chat-log');const mine=document.createElement('div');mine.className='bubble me';mine.textContent=message;log.append(mine);const r=await api('chat',{method:'POST',body:JSON.stringify({message,scope:'personal'})});const reply=document.createElement('div');reply.className='bubble';reply.textContent=r.reply;log.append(reply);log.scrollTop=log.scrollHeight});
+$('chat-form').addEventListener('submit',async e=>{
+  e.preventDefault();feedback();
+  const message=$('message').value.trim();if(!message)return;
+  const log=$('chat-log'),button=e.target.querySelector('[type=submit]');
+  const mine=document.createElement('div');mine.className='bubble me';mine.textContent=message;log.append(mine);
+  const reply=document.createElement('div');reply.className='bubble';reply.setAttribute('role','status');reply.textContent='⏳ Тоору готовит ответ…';log.append(reply);log.scrollTop=log.scrollHeight;
+  button.disabled=true;
+  try{const r=await api('chat',{method:'POST',body:JSON.stringify({message,scope:'personal'})});reply.textContent=r.reply;$('message').value=''}
+  catch(err){reply.textContent='⚠️ '+err.message;feedback(err.message)}
+  finally{button.disabled=false;log.scrollTop=log.scrollHeight}
+});
 loadStatus();loadMemories();

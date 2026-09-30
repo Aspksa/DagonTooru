@@ -115,6 +115,8 @@ class OllamaTests(unittest.TestCase):
                 self.assertEqual(ai.health()["status"], "ok")
                 self.assertEqual(ai.chat("Привет", ["личная запись"]), "Привет, я Тоору")
             self.assertEqual(captured[0]["model"], "tooru-local:4b")
+            self.assertEqual(captured[0]["options"]["num_predict"], 256)
+            self.assertIs(captured[0]["think"], False)
             self.assertIn("личная запись", captured[0]["messages"][0]["content"])
         finally:
             server.shutdown()
@@ -124,6 +126,11 @@ class OllamaTests(unittest.TestCase):
         with patch.dict(os.environ, {"TOORU_OLLAMA_URL": "http://example.com:11435"}):
             with self.assertRaises(ValueError):
                 Ollama()
+
+    def test_timeout_reports_actual_cause(self):
+        with patch("core.ai.urlopen", side_effect=TimeoutError("timed out")):
+            with self.assertRaisesRegex(RuntimeError, "не ответила вовремя"):
+                Ollama().chat("Привет", [])
 
 
 if __name__ == "__main__":
