@@ -1,0 +1,933 @@
+{
+  "schema_version": "1.0",
+  "file_purpose": "Machine-readable master specification for the Dragon Tooru project",
+  "project": {
+    "name_ru": "Дракончик Тоору",
+    "name_en": "Dragon Tooru",
+    "version": "0.1.0",
+    "release_stage_labels": {
+      "alpha": false,
+      "beta": false
+    },
+    "author": {
+      "name": "Матиенко Антон Александрович",
+      "email": "Aspksa@yandex.ru"
+    },
+    "encoding": "UTF-8",
+    "principles": [
+      "Один проект",
+      "Одно основное ядро",
+      "Дракончик Тоору и личный помощник — одно и то же",
+      "Домашние и рабочие проекты являются контекстами одного ядра",
+      "Проект переносимый и должен работать с внешнего SSD",
+      "Нельзя жестко привязываться к букве диска",
+      "Системный Python не требуется",
+      "PowerShell не используется для штатного запуска, установки и обновления",
+      "Веб, мобильные приложения и будущий домен работают поверх общего Tooru Core",
+      "Планируемая функция не считается реализованной, пока это не подтверждено кодом и тестами"
+    ]
+  },
+  "entrypoints": {
+    "main_launcher": "ДракончикТоору.bat",
+    "setup_launcher": "SETUP.bat",
+    "auto_open_web_after_healthcheck": true,
+    "portable_root_resolution": "%~dp0",
+    "single_instance_required": true,
+    "safe_mode_supported": true
+  },
+  "ui": {
+    "no_home_page": true,
+    "default_open_section": "personal_assistant",
+    "left_menu": [
+      {
+        "id": "personal_assistant",
+        "label": "Личный помощник",
+        "icon": "💬"
+      },
+      {
+        "id": "home_projects",
+        "label": "Домашние проекты",
+        "icon": "🏠"
+      },
+      {
+        "id": "work_projects",
+        "label": "Рабочие проекты",
+        "icon": "💼"
+      },
+      {
+        "id": "mobile_app",
+        "label": "Мобильное приложение",
+        "icon": "📱"
+      },
+      {
+        "id": "update",
+        "label": "Обновление",
+        "icon": "🔄",
+        "spacing_before": true
+      },
+      {
+        "id": "settings",
+        "label": "Настройки",
+        "icon": "⚙️",
+        "spacing_before": true
+      }
+    ],
+    "status_icons": {
+      "ok": "✅",
+      "warning": "⚠️",
+      "error": "❌",
+      "starting": "⏳",
+      "working": "🔄",
+      "disabled": "⚪"
+    }
+  },
+  "architecture": {
+    "core_name": "Tooru Core",
+    "single_core": true,
+    "components": [
+      "Context Manager",
+      "Memory Manager",
+      "Project Manager",
+      "Task Queue",
+      "Event Bus",
+      "Tooru AI Engine",
+      "Internet Gateway",
+      "Mobile API",
+      "Security",
+      "Diagnostics",
+      "Backup Manager",
+      "Updater"
+    ],
+    "clients": [
+      "Local Web UI",
+      "Public Web UI",
+      "Main Tooru Mobile App",
+      "Project-specific Mobile Apps",
+      "Future iOS Apps",
+      "Future Android Apps"
+    ]
+  },
+  "storage": {
+    "portable_external_ssd": true,
+    "absolute_drive_paths_forbidden": true,
+    "runtime": {
+      "root": "runtime/",
+      "python": "runtime/python/",
+      "ai": "runtime/ai/",
+      "tools": "runtime/tools/"
+    },
+    "database": {
+      "local_engine": "SQLite",
+      "server_engine_future": "PostgreSQL",
+      "main_file": "database/tooru.db",
+      "repository_abstraction_required": true,
+      "migrations_directory": "database/migrations/",
+      "network_share_direct_sqlite_access_forbidden": true
+    },
+    "storage_provider_abstraction": [
+      "LocalStorage",
+      "ObjectStorage",
+      "NetworkStorage"
+    ]
+  },
+  "memory": {
+    "single_memory_system": true,
+    "scopes": [
+      "personal",
+      "home",
+      "work",
+      "shared",
+      "system"
+    ],
+    "project_specific_memory": true,
+    "cross_scope_isolation_required": true,
+    "lifecycle": [
+      "TEMPORARY",
+      "CANDIDATE",
+      "VERIFIED",
+      "LONG_TERM",
+      "ARCHIVED",
+      "REJECTED"
+    ],
+    "recommended_fields": [
+      "id",
+      "text",
+      "source",
+      "scope",
+      "project_id",
+      "created_at",
+      "updated_at",
+      "importance",
+      "confidence",
+      "status",
+      "related_items"
+    ],
+    "embedding_search": {
+      "enabled_future": true,
+      "separate_embedding_model": true,
+      "vector_store_required": true
+    }
+  },
+  "context_manager": {
+    "required": true,
+    "rules": [
+      "Рабочий проект не получает домашнюю память автоматически",
+      "Домашний проект не получает рабочую память автоматически",
+      "Проектный контекст имеет доступ к собственной памяти и shared",
+      "Другие области доступны только по явно разрешенной политике"
+    ]
+  },
+  "projects": {
+    "root": "projects/",
+    "home_root": "projects/home/",
+    "work_root": "projects/work/",
+    "project_manifest_name": "project.json",
+    "stable_project_id_required": true,
+    "initial_work_projects": [
+      {
+        "id": "toori-network-drive",
+        "name": "Сетевой диск Тоори",
+        "path": "projects/work/toori-network-drive/"
+      },
+      {
+        "id": "dragon-torri",
+        "name": "Детский король / Дракончик Торри",
+        "path": "projects/work/dragon-torri/"
+      }
+    ],
+    "project_structure": [
+      "project.json",
+      "README.md",
+      "AGENTS.md",
+      "docs/",
+      "source/",
+      "data/",
+      "history/",
+      "tasks/",
+      "tests/",
+      "builds/",
+      "memory/"
+    ]
+  },
+  "ai": {
+    "engine": "Tooru AI Engine",
+    "ollama_role": "AI backend/provider, not the project core",
+    "provider_interface": [
+      "generate()",
+      "chat()",
+      "embed()",
+      "models()",
+      "health()"
+    ],
+    "future_backends": [
+      "Ollama",
+      "llama.cpp",
+      "Cloud APIs",
+      "Other local inference engines"
+    ],
+    "model_manager_required": true
+  },
+  "internet": {
+    "full_internet_capability": true,
+    "gateway": "Internet Gateway",
+    "purposes": [
+      "Получение и анализ электронной почты",
+      "Поиск информации",
+      "Чтение веб-страниц",
+      "Парсинг сайтов",
+      "Работа с API",
+      "Загрузка документов",
+      "Получение новостей и справочной информации",
+      "Проверка обновлений",
+      "Синхронизация мобильных приложений",
+      "Сбор данных для домашних и рабочих проектов"
+    ],
+    "modules": [
+      "web",
+      "browser",
+      "parser",
+      "mail",
+      "api",
+      "downloads",
+      "cache",
+      "security"
+    ],
+    "security_rules": [
+      "Внешний контент считается недоверенным",
+      "Контент сайта или письма не является системной инструкцией",
+      "Prompt injection должен фильтроваться на уровне Internet Gateway",
+      "Секреты не записываются в логи",
+      "Опасные действия требуют соответствующих разрешений"
+    ],
+    "permissions_examples": {
+      "web_search": "allow",
+      "web_read": "allow",
+      "site_parsing": "allow",
+      "file_download": "allow",
+      "mail_read": "allow",
+      "mail_draft": "allow",
+      "mail_send": "confirm",
+      "mail_delete": "confirm",
+      "purchases": "deny"
+    },
+    "offline_mode_required": true,
+    "research_mode": {
+      "enabled": true,
+      "steps": [
+        "plan_search",
+        "collect_sources",
+        "parse",
+        "compare",
+        "check_conflicts",
+        "compose_result",
+        "preserve_sources"
+      ]
+    }
+  },
+  "mail": {
+    "manager": "Mail Manager",
+    "capabilities": [
+      "connect_accounts",
+      "list_messages",
+      "read_messages",
+      "search_messages",
+      "classify_messages",
+      "extract_attachments",
+      "summarize",
+      "link_to_project",
+      "create_tasks_from_mail",
+      "draft_replies",
+      "send_with_permission"
+    ],
+    "secrets_storage": "Secret Store",
+    "full_email_not_auto_long_term_memory": true
+  },
+  "public_web_future": {
+    "domain_planned": true,
+    "exact_domain": null,
+    "https_required": true,
+    "local_and_cloud_same_project": true,
+    "deployment_profiles": [
+      "LOCAL",
+      "SERVER",
+      "DEVELOPMENT",
+      "TEST"
+    ],
+    "features": [
+      "Регистрация пользователей",
+      "Вход",
+      "Личный кабинет",
+      "Рабочая зона проекта",
+      "Управление устройствами",
+      "Уведомления",
+      "Файлы",
+      "Память",
+      "Проекты",
+      "История",
+      "Настройки"
+    ],
+    "account_system": {
+      "stable_user_id_required": true,
+      "email_not_primary_internal_id": true,
+      "future_features": [
+        "email_verification",
+        "password_recovery",
+        "2FA",
+        "passkeys",
+        "OAuth"
+      ]
+    },
+    "roles_future": [
+      "OWNER",
+      "ADMIN",
+      "MEMBER",
+      "VIEWER"
+    ],
+    "multi_user_isolation_required": true
+  },
+  "mobile": {
+    "main_app": {
+      "name": "Дракончик Тоору",
+      "purpose": "Общий личный помощник и центр экосистемы",
+      "platforms": [
+        "Android",
+        "iOS"
+      ],
+      "uses_common_core": true
+    },
+    "project_specific_apps": {
+      "enabled": true,
+      "each_project_can_have_own_app": true,
+      "own_name": true,
+      "own_icon": true,
+      "own_design": true,
+      "own_menu": true,
+      "own_features": true,
+      "own_permissions": true,
+      "own_notifications": true,
+      "own_version": true,
+      "separate_ai_core": false
+    },
+    "shared_sdk": {
+      "name": "Tooru Mobile SDK",
+      "capabilities": [
+        "Authentication",
+        "API Client",
+        "Secure Storage",
+        "Sync",
+        "Push Notifications",
+        "File Upload",
+        "File Download",
+        "Network Status",
+        "Logging",
+        "Device Registration",
+        "Error Handling"
+      ]
+    },
+    "offline_mode": true,
+    "device_id_required": true,
+    "remote_device_revocation": true,
+    "biometric_unlock_future": true,
+    "voice_input_output_future": true,
+    "camera_and_document_scan_future": true,
+    "project_app_examples": [
+      {
+        "project_id": "toori-network-drive",
+        "app_id": "toori-drive",
+        "name": "Toori Drive",
+        "functions": [
+          "files",
+          "upload",
+          "download",
+          "share",
+          "search",
+          "favorites",
+          "recent",
+          "sync",
+          "shared_folders",
+          "storage_usage",
+          "notifications",
+          "chat_with_tooru"
+        ]
+      },
+      {
+        "project_id": "dragon-torri",
+        "app_id": "dragon-torri",
+        "name": "Дракончик Торри",
+        "functions": [
+          "project_specific_ui",
+          "project_specific_content",
+          "profile",
+          "notifications"
+        ]
+      }
+    ]
+  },
+  "api": {
+    "version": "v1",
+    "base": "/api/v1/",
+    "examples": [
+      "/api/v1/chat",
+      "/api/v1/projects",
+      "/api/v1/memory",
+      "/api/v1/system/status",
+      "/api/v1/mobile/devices",
+      "/api/v1/files",
+      "/api/v1/tasks",
+      "/api/v1/notifications"
+    ],
+    "project_namespace_pattern": "/api/v1/projects/{project_id}/",
+    "web_and_mobile_share_business_logic": true
+  },
+  "tasks": {
+    "queue_required": true,
+    "statuses": [
+      "WAITING",
+      "RUNNING",
+      "SUCCESS",
+      "FAILED",
+      "CANCELLED"
+    ],
+    "examples": [
+      "index_documents",
+      "backup",
+      "memory_analysis",
+      "embedding_generation",
+      "updates",
+      "site_parsing",
+      "mail_processing",
+      "mobile_sync"
+    ]
+  },
+  "events": {
+    "event_bus_required": true,
+    "events": [
+      "PROJECT_CREATED",
+      "MEMORY_ADDED",
+      "MODEL_CHANGED",
+      "BACKUP_COMPLETED",
+      "UPDATE_INSTALLED",
+      "DEVICE_CONNECTED",
+      "MAIL_RECEIVED",
+      "MAIL_PROCESSED",
+      "WEB_PAGE_UPDATED",
+      "DOWNLOAD_COMPLETED",
+      "API_DATA_RECEIVED",
+      "INTERNET_OFFLINE",
+      "INTERNET_ONLINE",
+      "AUTH_EXPIRED"
+    ]
+  },
+  "diagnostics": {
+    "real_function_checks_required": true,
+    "checks": [
+      "storage_available",
+      "storage_writable",
+      "free_space",
+      "portable_python_starts",
+      "required_imports",
+      "database_opens",
+      "database_select",
+      "database_write",
+      "database_integrity",
+      "schema_version",
+      "ai_backend_health",
+      "ai_model_available",
+      "ai_test_request",
+      "web_backend_health",
+      "api_health",
+      "internet_connectivity",
+      "dns",
+      "https",
+      "mail_connectors",
+      "signature_manifest"
+    ]
+  },
+  "recovery": {
+    "crash_recovery": true,
+    "state_file": "runtime_state/state.json",
+    "clean_shutdown_flag": true,
+    "double_start_protection": true,
+    "maintenance_mode": true,
+    "safe_mode": true
+  },
+  "backup": {
+    "types": [
+      "quick",
+      "full",
+      "pre_update"
+    ],
+    "protect": [
+      "database/",
+      "memory/",
+      "projects/",
+      "config/user/",
+      "data/secure/"
+    ],
+    "models_not_in_every_backup": true
+  },
+  "updater": {
+    "source": "GitHub",
+    "git_required": false,
+    "zip_update": true,
+    "steps": [
+      "detect_version",
+      "check_update",
+      "download_zip",
+      "verify_sha256",
+      "verify_ed25519",
+      "backup",
+      "stop_core",
+      "replace_allowed_system_files",
+      "run_migrations",
+      "run_diagnostics",
+      "start_new_version"
+    ],
+    "rollback_on_failure": true,
+    "never_overwrite_without_migration_or_policy": [
+      "database/",
+      "memory/",
+      "projects/",
+      "models/",
+      "config/user/",
+      "data/secure/"
+    ]
+  },
+  "security": {
+    "author_marker": {
+      "text": [
+        "Дракончик Тоору",
+        "Автор: Матиенко Антон Александрович",
+        "E-mail: Aspksa@yandex.ru"
+      ],
+      "birth_date_included": false
+    },
+    "digital_signature": {
+      "algorithm": "Ed25519",
+      "hash": "SHA-256",
+      "public_key_path": "security/public_key.pem",
+      "manifest_path": "security/manifest.json",
+      "manifest_signature_path": "security/manifest.sig",
+      "private_key_in_repository": false,
+      "release_files_pattern": [
+        "ДракончикТоору-{version}.zip",
+        "ДракончикТоору-{version}.zip.sha256",
+        "ДракончикТоору-{version}.zip.sig"
+      ]
+    },
+    "secret_store": {
+      "path": "data/secure/",
+      "never_log_secrets": true,
+      "never_commit_private_keys": true
+    }
+  },
+  "history_and_ai_handoff": {
+    "mandatory_files": [
+      "AGENTS.md",
+      "ИСТОРИЯ/00_PROJECT_STATE.md",
+      "ИСТОРИЯ/01_ARCHITECTURE.md",
+      "ИСТОРИЯ/02_DECISIONS.md",
+      "ИСТОРИЯ/03_CHANGELOG.md",
+      "ИСТОРИЯ/04_ROADMAP.md",
+      "ИСТОРИЯ/05_NEXT_SESSION.md",
+      "ИСТОРИЯ/06_KNOWN_PROBLEMS.md",
+      "ИСТОРИЯ/TEST_STATUS.md"
+    ],
+    "new_chat_read_order": [
+      "AGENTS.md",
+      "ИСТОРИЯ/00_PROJECT_STATE.md",
+      "ИСТОРИЯ/01_ARCHITECTURE.md",
+      "ИСТОРИЯ/02_DECISIONS.md",
+      "ИСТОРИЯ/03_CHANGELOG.md",
+      "ИСТОРИЯ/04_ROADMAP.md",
+      "ИСТОРИЯ/05_NEXT_SESSION.md",
+      "ИСТОРИЯ/06_KNOWN_PROBLEMS.md",
+      "ИСТОРИЯ/TEST_STATUS.md",
+      "relevant_actual_code"
+    ],
+    "source_of_truth_priority": [
+      "actual_working_code",
+      "00_PROJECT_STATE.md",
+      "02_DECISIONS.md",
+      "01_ARCHITECTURE.md",
+      "05_NEXT_SESSION.md",
+      "03_CHANGELOG.md",
+      "04_ROADMAP.md",
+      "old_chat_messages"
+    ],
+    "development_states": [
+      "IMPLEMENTED",
+      "IN_PROGRESS",
+      "PLANNED"
+    ],
+    "session_end_requirements": [
+      "Update 00_PROJECT_STATE.md if factual state changed",
+      "Update 03_CHANGELOG.md for completed changes",
+      "Update 02_DECISIONS.md for architectural decisions",
+      "Update 06_KNOWN_PROBLEMS.md for bugs/problems",
+      "Update 05_NEXT_SESSION.md with exact continuation point",
+      "Update TEST_STATUS.md with actually verified tests"
+    ],
+    "new_chat_instruction": "Продолжи разработку Дракончика Тоору. Сначала строго выполни AGENTS.md и изучи папку ИСТОРИЯ. Не начинай изменение кода, пока не определишь фактическое состояние проекта."
+  },
+  "root_structure": [
+    "ДракончикТоору.bat",
+    "SETUP.bat",
+    "VERSION",
+    "README.md",
+    "AUTHOR.md",
+    "AGENTS.md",
+    "PROJECT_MANIFEST.json",
+    "ИСТОРИЯ/",
+    "runtime/",
+    "core/",
+    "web/",
+    "api/v1/",
+    "database/",
+    "memory/",
+    "projects/",
+    "mobile/",
+    "models/",
+    "security/",
+    "config/system/",
+    "config/user/",
+    "data/secure/",
+    "data/cache/",
+    "backups/",
+    "logs/",
+    "updates/",
+    "temp/",
+    "runtime_state/"
+  ],
+  "interface_design": {
+    "design_goal": "Лучший по удобству, чистый, спокойный, современный интерфейс с белым фоном и высокой читаемостью",
+    "theme": {
+      "default": "light",
+      "background": "#FFFFFF",
+      "surface": "#F8FAFC",
+      "surface_alt": "#F1F5F9",
+      "text_primary": "#111827",
+      "text_secondary": "#475569",
+      "border": "#E2E8F0",
+      "focus_ring": "#2563EB",
+      "success": "#16A34A",
+      "warning": "#D97706",
+      "error": "#DC2626",
+      "info": "#2563EB",
+      "accent_policy": "Использовать один основной акцентный цвет умеренно; большие белые пространства важнее декоративности",
+      "dark_mode_future": true
+    },
+    "visual_principles": [
+      "Белый фон по умолчанию",
+      "Высокий контраст текста",
+      "Минимум визуального шума",
+      "Крупные кликабельные области",
+      "Понятная иерархия",
+      "Мягкие границы и небольшие радиусы",
+      "Умеренные тени только для разделения уровней",
+      "Без кислотных цветов",
+      "Без чрезмерных градиентов",
+      "Без постоянной анимации",
+      "Максимум информации без ощущения перегруженности"
+    ],
+    "typography": {
+      "preferred_stack": "Inter, Segoe UI, Roboto, Arial, sans-serif",
+      "base_size_px": 16,
+      "line_height": 1.5,
+      "headings": {
+        "h1_px": 32,
+        "h2_px": 26,
+        "h3_px": 22
+      },
+      "minimum_ui_text_px": 14
+    },
+    "layout": {
+      "desktop": {
+        "sidebar": true,
+        "sidebar_width_px": 260,
+        "content_max_width_px": 1440,
+        "header_sticky": true
+      },
+      "tablet": {
+        "sidebar_collapsible": true
+      },
+      "mobile": {
+        "responsive": true,
+        "bottom_navigation_allowed": true,
+        "drawer_navigation_allowed": true
+      },
+      "spacing_system_px": [
+        4,
+        8,
+        12,
+        16,
+        24,
+        32,
+        48
+      ]
+    },
+    "main_shell": {
+      "sidebar_items": [
+        "Личный помощник",
+        "Домашние проекты",
+        "Рабочие проекты",
+        "Мобильное приложение",
+        "Обновление",
+        "Настройки"
+      ],
+      "top_bar": [
+        "Название текущего раздела",
+        "Статус Тоору",
+        "Уведомления",
+        "Профиль пользователя"
+      ],
+      "status_area": [
+        "Ядро",
+        "Память",
+        "База",
+        "AI",
+        "Интернет",
+        "Синхронизация"
+      ]
+    },
+    "components": [
+      "Sidebar",
+      "TopBar",
+      "CommandPalette",
+      "ChatPanel",
+      "ProjectCard",
+      "ProjectWorkspace",
+      "FileBrowser",
+      "TaskBoard",
+      "MemoryInspector",
+      "StatusBadge",
+      "SystemHealthPanel",
+      "NotificationCenter",
+      "SettingsPanel",
+      "SearchBar",
+      "Modal",
+      "Drawer",
+      "Toast",
+      "Tabs",
+      "DataTable",
+      "EmptyState",
+      "LoadingState",
+      "ErrorState",
+      "ConfirmDialog"
+    ],
+    "accessibility": {
+      "wcag_target": "WCAG 2.2 AA",
+      "keyboard_navigation": true,
+      "visible_focus": true,
+      "aria_labels": true,
+      "screen_reader_support": true,
+      "reduced_motion_support": true,
+      "minimum_touch_target_px": 44,
+      "do_not_rely_on_color_only": true
+    },
+    "logo": {
+      "required": true,
+      "concept": "Дружелюбный маленький дракон Тоору, технологичный и узнаваемый, без перегрузки деталями",
+      "style": [
+        "чистая векторная форма",
+        "современный минимализм",
+        "дружелюбный характер",
+        "хорошо читается в 24x24 и 32x32",
+        "подходит для favicon, web, desktop и mobile"
+      ],
+      "variants": [
+        "full_logo",
+        "icon_only",
+        "monochrome",
+        "light_background",
+        "dark_background_future"
+      ],
+      "formats": [
+        "SVG",
+        "PNG",
+        "ICO",
+        "WebP"
+      ],
+      "recommended_paths": [
+        "web/static/branding/logo.svg",
+        "web/static/branding/logo-icon.svg",
+        "web/static/branding/favicon.ico",
+        "mobile/shared/branding/"
+      ]
+    },
+    "icons": {
+      "required": true,
+      "style": "единая тонкая outline-система с одинаковой толщиной линий",
+      "preferred_libraries": [
+        "Lucide",
+        "Heroicons"
+      ],
+      "rules": [
+        "Не смешивать несколько наборов иконок без необходимости",
+        "Иконки должны иметь текстовые подписи в важных местах",
+        "Статусы могут использовать символы ✅ ⚠️ ❌ ⏳ 🔄 ⚪ только как дополнение к тексту"
+      ]
+    }
+  },
+  "technology_stack": {
+    "frontend": {
+      "languages": [
+        "HTML5",
+        "CSS3",
+        "JavaScript",
+        "TypeScript"
+      ],
+      "recommended_primary_language": "TypeScript",
+      "frameworks_and_libraries": {
+        "recommended": [
+          "React",
+          "Vite",
+          "React Router",
+          "TanStack Query",
+          "Zod"
+        ],
+        "ui_options": [
+          "Radix UI",
+          "Headless UI"
+        ],
+        "styling_options": [
+          "CSS Modules",
+          "Tailwind CSS"
+        ],
+        "icon_library": "Lucide"
+      },
+      "rules": [
+        "Основную бизнес-логику интерфейса писать на TypeScript",
+        "JavaScript допустим для небольших служебных скриптов",
+        "HTML должен быть семантическим",
+        "CSS должен поддерживать адаптивность и accessibility",
+        "Не перегружать проект тяжёлыми библиотеками без необходимости"
+      ]
+    },
+    "backend_and_system": {
+      "python": {
+        "role": "Основной portable backend и orchestration слой проекта на ранних версиях",
+        "portable": true
+      },
+      "java": {
+        "role": "Допустим для Android-native модулей, JVM-сервисов и специализированных компонентов",
+        "required_now": false
+      },
+      "rust": {
+        "role": "Высокопроизводительные системные компоненты, безопасная работа с файлами, криптография, индексирование и будущие native-модули",
+        "required_now": false,
+        "future_priority": "high_for_native_components"
+      }
+    },
+    "mobile": {
+      "android": {
+        "preferred_language": "Kotlin",
+        "java_compatibility": true,
+        "note": "Java поддерживается, но новые Android-модули предпочтительно писать на Kotlin"
+      },
+      "ios": {
+        "preferred_language": "Swift"
+      },
+      "cross_platform_option": {
+        "allowed": true,
+        "examples": [
+          "React Native",
+          "Flutter"
+        ],
+        "decision": "Выбирать отдельно для каждого приложения проекта"
+      }
+    },
+    "web_architecture": {
+      "frontend_backend_separation": true,
+      "api_first": true,
+      "frontend_uses_api": true,
+      "websocket_or_sse_future": true,
+      "pwa_future": true
+    }
+  },
+  "frontend_quality_rules": [
+    "Все основные экраны должны иметь loading, empty, error и offline states",
+    "Нельзя оставлять действия без визуальной обратной связи",
+    "Опасные действия требуют подтверждения",
+    "Длительные операции показывают прогресс",
+    "Все формы имеют inline validation",
+    "Интерфейс должен корректно работать при масштабировании браузера 125–200%",
+    "Русский текст и кириллица должны корректно отображаться везде",
+    "Иконки и декоративные элементы не должны ухудшать читаемость",
+    "Страница не должна прыгать при загрузке данных",
+    "Основная навигация должна быть предсказуемой и постоянной"
+  ],
+  "future_ui_features": [
+    "Глобальный поиск",
+    "Command Palette",
+    "Персонализация панели",
+    "Закреплённые проекты",
+    "Недавние проекты",
+    "Система уведомлений",
+    "Drag-and-drop файлов",
+    "Live status updates",
+    "PWA",
+    "Тёмная тема",
+    "Настраиваемая плотность интерфейса"
+  ]
+}

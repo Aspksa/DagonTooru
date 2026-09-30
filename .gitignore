@@ -1,0 +1,16 @@
+# Дракончик Тоору · Автор: Матиенко Антон Александрович · E-mail: Aspksa@yandex.ru
+__pycache__/
+*.py[cod]
+.pytest_cache/
+runtime/
+database/*.db*
+data/
+logs/
+backups/
+models/
+temp/
+runtime_state/
+config/user/
+*.pem
+*.key
+.env

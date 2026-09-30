@@ -1,0 +1,42 @@
+<!doctype html>
+<!-- Дракончик Тоору · Автор: Матиенко Антон Александрович · E-mail: Aspksa@yandex.ru -->
+<html lang="ru">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Дракончик Тоору</title>
+  <link rel="icon" href="/static/branding/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Главное меню">
+      <div class="brand"><img src="/static/branding/logo.svg" alt="" width="40" height="40"><span>Дракончик <strong>Тоору</strong></span></div>
+      <nav id="menu">
+        <button class="active" data-page="assistant"><span aria-hidden="true">◌</span> Личный помощник</button>
+        <button data-page="home"><span aria-hidden="true">⌂</span> Домашние проекты</button>
+        <button data-page="work"><span aria-hidden="true">▦</span> Рабочие проекты</button>
+        <button data-page="mobile"><span aria-hidden="true">▯</span> Мобильное приложение</button>
+        <hr><button data-page="update"><span aria-hidden="true">↻</span> Обновление</button>
+        <button data-page="settings"><span aria-hidden="true">⚙</span> Настройки</button>
+      </nav>
+      <p class="sidebar-note">Локальная версия 0.1.0</p>
+    </aside>
+    <main>
+      <header class="topbar"><div><span class="eyebrow">ВАШЕ ПРОСТРАНСТВО</span><h1 id="title">Личный помощник</h1></div><span id="core-badge" class="badge">⏳ Проверка ядра</span></header>
+      <div class="content">
+        <section id="assistant" class="page active" aria-label="Личный помощник">
+          <div class="welcome"><div class="welcome-icon">✦</div><div><h2>Здравствуйте! Я Тоору.</h2><p>Ваш локальный помощник. Личные записи остаются в личной области памяти.</p></div></div>
+          <div class="grid two">
+            <section class="card"><div class="card-head"><h2>Диалог</h2><span id="ai-badge" class="badge muted">Проверка AI</span></div><div id="chat-log" class="chat-log" role="log" aria-live="polite"><p class="hint">Для ответов подключите Ollama и выберите модель в настройках запуска.</p></div><form id="chat-form"><label for="message">Ваше сообщение</label><textarea id="message" rows="3" maxlength="4000" placeholder="Напишите Тоору…" required></textarea><button class="primary" type="submit">Отправить</button></form></section>
+            <section class="card"><div class="card-head"><h2>Личная память</h2><span class="badge muted">Только личная</span></div><p class="hint">Сохранённые заметки используются только при личном разговоре.</p><form id="memory-form"><label for="memory-text">Новая запись</label><textarea id="memory-text" rows="3" maxlength="4000" placeholder="Что Тоору стоит помнить?" required></textarea><button type="submit">Сохранить запись</button></form><div id="memory-list" class="list" aria-live="polite"></div></section>
+          </div>
+        </section>
+        <section id="projects" class="page"><div class="section-intro"><h2 id="project-heading">Проекты</h2><p>Каждый проект хранит записи в своей области.</p></div><form id="project-form" class="inline-form"><label for="project-name">Название проекта</label><div class="row"><input id="project-name" maxlength="120" required placeholder="Новый проект"><button class="primary" type="submit">Добавить</button></div></form><div id="project-list" class="grid three" aria-live="polite"></div><section id="project-memory" class="card hidden"><div class="card-head"><h2 id="selected-project">Память проекта</h2><button id="close-project" type="button" aria-label="Закрыть проект">Закрыть</button></div><form id="project-memory-form"><label for="project-memory-text">Новая запись проекта</label><textarea id="project-memory-text" rows="2" maxlength="4000" required></textarea><button type="submit">Сохранить</button></form><div id="project-memory-list" class="list"></div></section></section>
+        <section id="placeholder" class="page card"><span class="large-icon" aria-hidden="true">◇</span><h2 id="placeholder-title"></h2><p id="placeholder-text" class="hint"></p></section>
+        <section id="settings" class="page"><div class="section-intro"><h2>Состояние системы</h2><p>Проверка локального ядра и компонентов.</p></div><div id="status-grid" class="grid three" aria-live="polite"></div><p class="hint">AI работает через локальный Ollama. Установите Ollama и модель отдельно, затем задайте TOORU_MODEL перед запуском.</p><button id="refresh-status" type="button">Обновить проверку</button></section>
+        <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+      </div>
+    </main>
+  </div><script src="/static/app.js" defer></script>
+</body>
+</html>
