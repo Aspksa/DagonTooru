@@ -18,6 +18,8 @@ Crash Recovery ведёт `runtime_state/state.json` атомарно через
 
 Portable Python installer: IN_PROGRESS. `SETUP.bat` подготавливает официальный Python 3.14.7 embeddable package для AMD64/ARM64/x86, проверяет SHA-256, использует staging и rollback без PowerShell. Реальная Windows/SSD-проверка installer ещё не выполнена.
 
-Проверено в Linux 2026-09-30: `python -m unittest discover -s tests -v` — 28/28; `python -m compileall -q core tests` — успешно; `node --check web/static/app.js` — успешно. Тест отдельно подтверждает, что при занятом порту новый процесс не меняет `state.json` и не открывает Storage.
+Updater: IN_PROGRESS. В репозитории добавлен `docs/UPDATE_SYSTEM.md` с release-контрактом, protected paths, двухфазной моделью и требованиями SHA-256 + Ed25519. Локальный прототип updater прошёл 7/7 security-тестов, но код скачивания/применения обновления не merged в репозиторий: подключённый GitHub-инструмент заблокировал запись самоприменяющегося updater-кода. Реального `security/public_key.pem` пока нет; создавать фиктивный ключ запрещено.
 
-PLANNED: Safe Mode, Maintenance Mode, полный Backup Manager, AI provider/model manager, Internet Gateway/почта, очередь, события, мобильные приложения, публичная многопользовательская версия, updater и подписанные релизы.
+Проверено в Linux 2026-09-30: `python -m unittest discover -s tests -v` — 28/28; `python -m compileall -q core tests` — успешно; `node --check web/static/app.js` — успешно. Отдельно локальный прототип updater: 7/7 тестов.
+
+PLANNED: Safe Mode, Maintenance Mode, полный Backup Manager, AI provider/model manager, Internet Gateway/почта, очередь, события, мобильные приложения, публичная многопользовательская версия и завершение подписанного updater.
